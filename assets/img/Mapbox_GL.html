@@ -1,0 +1,242 @@
+<!doctype html>
+<html lang="en">
+
+<head>
+    <meta charset="utf-8" />
+    <title>Demo: Make a choropleth map</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <script src="https://api.tiles.mapbox.com/mapbox-gl-js/v3.1.0/mapbox-gl.js"></script>
+    <link href="https://api.tiles.mapbox.com/mapbox-gl-js/v3.1.0/mapbox-gl.css" rel="stylesheet" />
+    <style>
+        body {
+            margin: 0;
+            padding: 0;
+        }
+
+        h2,
+        h3 {
+            margin: 10px;
+            font-size: 18px;
+        }
+
+        h3 {
+            font-size: 16px;
+        }
+
+        p {
+            margin: 10px;
+        }
+
+        .map-overlay {
+            position: absolute;
+            bottom: 0;
+            right: 0;
+            background: #fff;
+            margin-right: 20px;
+            font-family: Arial, sans-serif;
+            overflow: auto;
+            border-radius: 3px;
+        }
+
+        #map {
+            position: absolute;
+            top: 0;
+            bottom: 0;
+            width: 100%;
+        }
+
+        #features {
+            top: 0;
+            height: 100px;
+            margin-top: 20px;
+            width: 250px;
+        }
+
+        #legend {
+            padding: 10px;
+            box-shadow: 0 1px 2px rgb(0 0 0 / 10%);
+            line-height: 18px;
+            height: 100px;
+            margin-bottom: 40px;
+            width: 100px;
+        }
+
+        .legend-key {
+            display: inline-block;
+            border-radius: 20%;
+            width: 10px;
+            height: 10px;
+            margin-right: 5px;
+        }
+
+        /* Fly feature */
+         #fly {
+            display: block;
+            position: relative;
+            margin: 0px auto;
+            width: 10%;
+            height: 40px;
+            padding: 10px;
+            border: none;
+            border-radius: 3px;
+            font-size: 12px;
+            text-align: center;
+            color: #fff;
+            background: #ee8a65;
+        } 
+    </style>
+</head>
+
+<body>
+    <div id="map"></div>
+    <br>
+    <button id="fly">Fly</button>
+    <div class="map-overlay" id="features">
+        <h2>US population density</h2>
+        <div id="pd">
+            <p>Hover over a state!</p>
+        </div>
+    </div>
+    
+    <div class="map-overlay" id="legend"></div>
+
+    <!-- <div class="map-overlay" id="legend">
+        <h3>Population Density Legend</h3>
+        <div>
+            <div class="legend-key" style="background-color: #FFEDA0;"></div>
+            <span>0-10</span>
+        </div>
+        <div>
+            <div class="legend-key" style="background-color: #FED976;"></div>
+            <span>10-20</span>
+        </div>
+        <div>
+            <div class="legend-key" style="background-color: #FEB24C;"></div>
+            <span>20-50</span>
+        </div>
+        <div>
+            <div class="legend-key" style="background-color: #FD8D3C;"></div>
+            <span>50-100</span>
+        </div>
+        <div>
+            <div class="legend-key" style="background-color: #FC4E2A;"></div>
+            <span>100+</span>
+        </div>
+    </div> -->
+
+    <script>
+        // define access token
+        mapboxgl.accessToken = 'pk.eyJ1IjoiamV2YXVnaG5oZW5yeS0xIiwiYSI6ImNsdHNsZnZpejBxdXMyaXFtMDh0dDViZDEifQ.yETSsni8J5_-D88MSMSZYQ';
+
+        // create map
+        const map = new mapboxgl.Map({
+            container: 'map', // container id
+            style: 'mapbox://styles/jevaughnhenry-1/clu42dmbj009x01p64zbu9yhd' // map style URL from Mapbox Studio
+        });
+
+        // wait for map to load before adjusting it
+        map.on('load', () => {
+            
+
+             const originalCenter = map.getCenter(-97,38); 
+            const originalZoom = map.getZoom(4); 
+            
+            let isFlyingToSpecificLocation = false; 
+            
+            document.getElementById('fly').addEventListener('click', () => {
+                if (!isFlyingToSpecificLocation) { 
+                    // Fly to a specific location (e.g., New York City) with a specific zoom level           
+                     map.flyTo({                 
+                       center: [-74.0060, 40.7128], // [longitude, latitude]
+                     zoom: 12, // Desired zoom level
+                      essential: true // this animation is considered essential with respect to prefers-reduced-motion            
+                   });        
+              } else {             // Fly back to the original view            
+               map.flyTo({                 
+            center: originalCenter,                 
+                        zoom: originalZoom,                 
+                        essential: true // this animation is considered essential with respect to prefers-reduced-motion            
+                     });         
+                 }                  
+               isFlyingToSpecificLocation = !isFlyingToSpecificLocation;     
+             });
+
+
+
+                    // make a pointer cursor
+                    map.getCanvas().style.cursor = 'default';
+
+                    // set map bounds to the continental US
+                    map.fitBounds([
+                        [-133.2421875, 16.972741],
+                        [-47.63671875, 52.696361]
+                    ]);
+
+                    // define layer names
+                    const layers = [
+                        '0-50',
+                        '50-100',
+                        '100-500',
+                        '500-1000',
+                        '1000+'
+                    ];
+                    const colors = [
+                        '#FFFFD4',
+                        '#FED98E',
+                        '#FE9929',
+                        '#D95F0E',
+                        '#993404'
+                    ];
+
+                    // create legend
+                    const legend = document.getElementById('legend');
+
+                    layers.forEach((layer, i) => {
+                        const color = colors[i];
+                        const item = document.createElement('div');
+                        const key = document.createElement('span');
+                        key.className = 'legend-key';
+                        key.style.backgroundColor = color;
+
+                        const value = document.createElement('span');
+                        value.innerHTML = `${layer}`;
+                        item.appendChild(key);
+                        item.appendChild(value);
+                        legend.appendChild(item);
+                    });
+
+                    //Click popup v1 - name and density
+                    // map.on('click', (e) => {
+                    //         const states = map.queryRenderedFeatures(e.point, {
+                    //         layers: ['US_state_data']
+                    //     });
+                    //         new mapboxgl.Popup()
+                    //             .setLngLat(e.lngLat)
+                    //             .setHTML(`<h3>${states[0].properties.name}</h3><p><strong><em>${states[0].properties.density}</strong> people per square mile</em></p>`)
+                    //             .addTo(map)
+                    //     });
+
+                    //Click popup v2 - name only
+                    map.on('click', 'US_state_data', (e) => {
+
+                        new mapboxgl.Popup()
+                            .setLngLat(e.lngLat)
+                            .setHTML(e.features[0].properties.name)
+                            .addTo(map)
+                    });
+
+
+                    // change info window on hover
+                    map.on('mousemove', (event) => {
+                        const states = map.queryRenderedFeatures(event.point, {
+                            layers: ['US_state_data']
+                        });
+                        document.getElementById('pd').innerHTML = states.length
+                            ? `<h3>${states[0].properties.name}</h3><p><strong><em>${states[0].properties.density}</strong> people per square mile</em></p>`
+                            : `<p>Hover over a state!</p>`;
+                    });
+                });
+    </script>
+</body>
+
+</html>
